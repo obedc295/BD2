@@ -1,0 +1,127 @@
+select *
+  from RESERVAS;
+
+select *
+  from AGENCIAS;
+
+select *
+  from VUELOS;
+-- 4) Mediante un bloque anónimo utilizar un BULK COLLECT para cargar en todas las
+-- reservas, luego en el cuerpo del bloque anónimo se debe verificar si la reserva se ha
+-- realizado por Internet y cuyo importe sea inferior a 175, los registros que cumplen la
+-- condición se deben imprimir. Los datos para mostrar son todos los de la tabla reservas, el
+-- nombre de la agencia y la fecha del vuelo. (valor 20%)
+
+
+-- EN TRS_ID_TRESERVA CAMPO DATOS INT PARA INTERNET
+
+/
+
+--- PRIMERO COMO DICE TAL CUAL EL EJERCICIO, GUARDA TODOS LOS DATOS DE LAS RESERVAS CON EL BULK COLLECT Y LUEGO DENTRO DEL FOR SE APLICAN LAS CONDICIONES 
+--- ES MÁS LENTO PORQUE HACE UN SELECT PARA CADA REGISTRO
+
+
+set serveroutput on size unlimited;
+EXEC DBMS_OUTPUT.ENABLE(NULL);
+declare
+   type T_TABLA_RESERVAS is
+      table of RESERVAS%ROWTYPE;
+   V_DATOS_RESERVAS T_TABLA_RESERVAS;
+   V_NOMBRE_AGENCIA AGENCIAS.CN_AGENCIA%type;
+   V_FECHA_VUELO    VUELOS.FECHA_VUELO%type;
+   V_REGISTRO       number;
+begin
+   V_REGISTRO := 0;
+   select *
+   bulk collect
+     into V_DATOS_RESERVAS
+     from RESERVAS;
+
+--- VERIFICANDO QUE LA RESERVA SE REALIZO POR INTERNET Y CUYO IMPORTE SEA MENOR A 175.
+
+   for FILA in 1..sql%ROWCOUNT loop
+      if (
+         V_DATOS_RESERVAS(FILA).TRS_ID_TRESERVA = 'INT'
+         and V_DATOS_RESERVAS(FILA).IMPORTE < 175
+      ) then
+         V_REGISTRO := V_REGISTRO + 1;
+         select B.FECHA_VUELO,
+                C.CN_AGENCIA
+           into
+            V_FECHA_VUELO,
+            V_NOMBRE_AGENCIA
+           from RESERVAS A
+          inner join VUELOS B
+         on B.ID_VUELO = A.VUE_ID_VUELO
+          inner join AGENCIAS C
+         on C.ID_AGENCIA = A.AGE_ID_AGENCIA
+          where A.ID_RESERVA = V_DATOS_RESERVAS(FILA).ID_RESERVA;
+
+         DBMS_OUTPUT.PUT_LINE('REGISTRO #' || V_REGISTRO);
+         DBMS_OUTPUT.PUT_LINE('ID RESERVA      : ' || V_DATOS_RESERVAS(FILA).ID_RESERVA);
+         DBMS_OUTPUT.PUT_LINE('IMPORTE         : ' ||V_DATOS_RESERVAS(FILA).IMPORTE);
+         DBMS_OUTPUT.PUT_LINE('CLI NIF         : ' ||V_DATOS_RESERVAS(FILA).CLI_NIF);
+         DBMS_OUTPUT.PUT_LINE('TRS ID TRESERVA : ' ||V_DATOS_RESERVAS(FILA).TRS_ID_TRESERVA);
+         DBMS_OUTPUT.PUT_LINE('AGE ID AGENCIA  : ' ||V_DATOS_RESERVAS(FILA).AGE_ID_AGENCIA);
+         DBMS_OUTPUT.PUT_LINE('PLA ID PLAZA    : ' ||V_DATOS_RESERVAS(FILA).PLA_ID_PLAZA);
+         DBMS_OUTPUT.PUT_LINE('VUELO ID        : ' ||V_DATOS_RESERVAS(FILA).VUE_ID_VUELO);
+         DBMS_OUTPUT.PUT_LINE('FECHA VUELO     : ' ||V_FECHA_VUELO);
+         DBMS_OUTPUT.PUT_LINE('NOMBRE AGENCIA  : ' ||V_NOMBRE_AGENCIA);
+         DBMS_OUTPUT.PUT_LINE(CHR(13));
+      end if;
+   end loop;
+
+end;
+/
+
+EXEC DBMS_OUTPUT.ENABLE(NULL);
+set serveroutput on size unlimited;
+----------- VERSION OPTIMIZADA
+-- SE GUARDA DE UN SOLO EN EL BULK COLLECT LOS REGISTROS QUE CUMPLEN LAS CONDICIONES Y LUEGO SOLO SE IMPRIMEN EN EL FOR. 
+
+declare
+   type T_FILA is record (
+         ID_RESERVA      RESERVAS.ID_RESERVA%type,
+         IMPORTE         RESERVAS.IMPORTE%type,
+         CLI_NIF         RESERVAS.CLI_NIF%type,
+         TRS_ID_TRESERVA RESERVAS.TRS_ID_TRESERVA%type,
+         AGE_ID_AGENCIA  RESERVAS.AGE_ID_AGENCIA%type,
+         PLA_ID_PLAZA    RESERVAS.PLA_ID_PLAZA%type,
+         VUE_ID_VUELO    RESERVAS.VUE_ID_VUELO%type,
+         FECHA_VUELO     VUELOS.FECHA_VUELO%type,
+         CN_AGENCIA      AGENCIAS.CN_AGENCIA%type
+   );
+   type T_TABLA_RESERVAS is
+      table of T_FILA;
+   V_DATOS_RESERVAS T_TABLA_RESERVAS;
+begin
+   select A.*,
+          B.FECHA_VUELO,
+          C.CN_AGENCIA
+   bulk collect
+     into V_DATOS_RESERVAS
+     from RESERVAS A
+    inner join VUELOS B
+   on B.ID_VUELO = A.VUE_ID_VUELO
+    inner join AGENCIAS C
+   on C.ID_AGENCIA = A.AGE_ID_AGENCIA
+    where A.TRS_ID_TRESERVA = 'INT'
+      and A.IMPORTE < 175;
+
+--- VERIFACANDO QUE LA RESERVA SE REALIZO POR INTERNET Y CUYO IMPORTE SEA MENOR A 175.
+
+   for FILA in 1..sql%ROWCOUNT loop
+      DBMS_OUTPUT.PUT_LINE('REGISTRO #' || FILA);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).ID_RESERVA);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).IMPORTE);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).CLI_NIF);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).TRS_ID_TRESERVA);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).AGE_ID_AGENCIA);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).PLA_ID_PLAZA);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).VUE_ID_VUELO);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).FECHA_VUELO);
+      DBMS_OUTPUT.PUT_LINE(V_DATOS_RESERVAS(FILA).CN_AGENCIA);
+      DBMS_OUTPUT.PUT_LINE(CHR(13));
+   end loop;
+
+end;
