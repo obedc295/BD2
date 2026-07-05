@@ -121,7 +121,7 @@ GO
 CREATE TABLE FACT_VENTAS (
     venta_id        BIGINT IDENTITY(1,1) NOT NULL,
     producto_id     INT            NOT NULL,
-    tiempo_id       INT            NOT NULL,
+    tiempo_id       DATE           NOT NULL,
     location_id    INT            NOT NULL,
     cantidad        DECIMAL(8,2)   NOT NULL,
     precio_unitario DECIMAL(8,2)   NOT NULL,
